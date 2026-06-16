@@ -19,15 +19,15 @@
   * [Windows Setup](#windows-setup)
   * [Linux Setup](#linux-setup)
   * [macOS Setup](#macos-setup)
-* [Hardware Compatibility & Acceleration](#hardware-compatibility--acceleration)
+* [Hardware Compatibility & Acceleration](#hardware-compatibility-acceleration)
 * [Performance Benchmarks](#performance-benchmarks)
-* [Troubleshooting & FAQ](#troubleshooting--faq)
+* [Troubleshooting & FAQ](#troubleshooting-faq)
 * [Building From Source](#building-from-source)
 * [Licensing](#licensing)
 
 ---
 
-## 🌟 Key Features
+## <a id="key-features"></a>🌟 Key Features
 
 *   **100% Offline & Private:** Run inferences locally. No internet, telemetry, cloud logging, or API keys required.
 *   **Zero-Install Portability:** Entire runtime (Node.js, models, GPU backends) is self-contained. Zero global system environment changes.
@@ -38,7 +38,7 @@
 
 ---
 
-## 📁 Folder Architecture
+## <a id="folder-architecture"></a>📁 Folder Architecture
 
 ```
 Portable-Diffusion/
@@ -62,7 +62,7 @@ Portable-Diffusion/
 
 ---
 
-## 🚀 Getting Started
+## <a id="getting-started"></a>🚀 Getting Started
 
 Ensure you have a modern web browser installed. Follow the quick guide below for your platform:
 
@@ -101,7 +101,7 @@ Ensure you have a modern web browser installed. Follow the quick guide below for
 
 ---
 
-## 🖥️ Hardware Compatibility & Acceleration
+## <a id="hardware-compatibility-acceleration"></a>🖥️ Hardware Compatibility & Acceleration
 
 ### Windows Compatibility Matrix
 | GPU Vendor | Primary Tech | Status | Notes |
@@ -145,7 +145,7 @@ Typical generation times for an image at **512x512** resolution with **20 steps*
 
 ---
 
-## 🔧 Troubleshooting & FAQ
+## <a id="troubleshooting-faq"></a>🔧 Troubleshooting & FAQ
 
 > [!TIP]
 > **How to reset the environment?**
