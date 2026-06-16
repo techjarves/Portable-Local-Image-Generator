@@ -127,7 +127,7 @@ Ensure you have a modern web browser installed. Follow the quick guide below for
 
 ---
 
-## ⏱️ Performance Benchmarks
+## <a id="performance-benchmarks"></a>⏱️ Performance Benchmarks
 
 Typical generation times for an image at **512x512** resolution with **20 steps**:
 
@@ -161,7 +161,7 @@ Typical generation times for an image at **512x512** resolution with **20 steps*
 
 ---
 
-## 🔨 Building From Source
+## <a id="building-from-source"></a>🔨 Building From Source
 
 If prebuilt binaries are incompatible with your system configuration, you can compile them manually:
 
@@ -195,6 +195,6 @@ cmake --build . --config Release -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sy
 
 ---
 
-## 📝 Licensing
+## <a id="licensing"></a>📝 Licensing
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file. It bundles [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) (MIT License). Model weights are subject to their respective creators' licenses.
