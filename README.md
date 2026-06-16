@@ -1,151 +1,181 @@
 # ⚡ Portable-Diffusion
 
-A premium, fully self-contained, zero-configuration **local AI image generator** and desktop environment for offline Stable Diffusion image generation. Run your favorite Safetensors and GGUF models with hardware acceleration on Windows, Linux, and macOS without the hassle of configuring Python dependencies, global environments, or complex backend installs.
+<p align="center">
+  <strong>A premium, zero-configuration local AI image generator and offline Stable Diffusion GUI. Powered by hardware-accelerated GPU and NPU execution on Windows, Linux, and macOS.</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Offline-100%25-green?style=for-the-badge&logo=offline" alt="100% Offline" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-blue?style=for-the-badge" alt="Platforms" />
+  <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="License" />
+</p>
 
 ---
 
-## 🚀 Key Highlights
-
-*   **100% Offline & Private:** Your prompts, configurations, and generated images stay entirely on your local machine.
-*   **Zero System Footprint:** Everything (including Node.js runtimes, model files, and GPU backend libraries) is sandboxed inside the project folder. No global environment paths are altered.
-*   **Automated GPU Acceleration:** Automatically detects and configures the optimal backend for your hardware:
-    *   **NVIDIA:** Native CUDA configuration.
-    *   **AMD Radeon:** ROCm setup or Vulkan fallback.
-    *   **Apple Silicon:** Metal GPU framework.
-    *   **Intel Arc:** Cross-vendor Vulkan.
-    *   **Intel Core Ultra:** Dedicated OpenVINO NPU support.
-*   **Integrated Model Library:** Paste any Hugging Face URL to download weights directly, or drag-and-drop local `.safetensors`, `.gguf`, or `.ckpt` files.
-*   **Real-Time Hardware Telemetry:** Monitor your CPU, RAM, GPU, and VRAM utilization directly inside the clean web workspace.
-*   **Metadata-rich Gallery:** Automatically saves generated PNGs alongside detailed parameter metadata JSONs.
+## 📖 Table of Contents
+* [Key Features](#key-features)
+* [Folder Architecture](#folder-architecture)
+* [Getting Started](#getting-started)
+  * [Windows Setup](#windows-setup)
+  * [Linux Setup](#linux-setup)
+  * [macOS Setup](#macos-setup)
+* [Hardware Compatibility & Acceleration](#hardware-compatibility--acceleration)
+* [Performance Benchmarks](#performance-benchmarks)
+* [Troubleshooting & FAQ](#troubleshooting--faq)
+* [Building From Source](#building-from-source)
+* [Licensing](#licensing)
 
 ---
 
-## 📁 Repository Structure
+## 🌟 Key Features
+
+*   **100% Offline & Private:** Run inferences locally. No internet, telemetry, cloud logging, or API keys required.
+*   **Zero-Install Portability:** Entire runtime (Node.js, models, GPU backends) is self-contained. Zero global system environment changes.
+*   **Auto-Configured Acceleration:** Auto-detects hardware specs to load CUDA (Nvidia), ROCm (AMD), Vulkan (Intel/AMD), Metal (macOS), or OpenVINO (Intel NPU) backends.
+*   **Integrated Model Manager:** Paste Hugging Face URLs to download weights directly, or drag-and-drop local `.safetensors` or `.gguf` files.
+*   **Live Performance Monitor:** Track CPU, RAM, GPU, and VRAM utilization in real-time directly inside the web UI.
+*   **Local Output Gallery:** Saves generated images side-by-side with prompt parameters and metadata JSON files.
+
+---
+
+## 📁 Folder Architecture
 
 ```
 Portable-Diffusion/
-├── windows.bat                # Main double-click launcher (Windows)
-├── linux.sh                   # Main terminal launcher (Linux)
-├── mac.sh                     # Main terminal launcher (macOS)
-├── LICENSE                    # MIT Open Source license
-├── .gitignore                 # Pre-configured ignore paths for model files and output images
-├── README.md                  # Beautifully crafted documentation
+├── windows.bat                # Windows Launcher (Double-click entrypoint)
+├── linux.sh                   # Linux Launcher (Terminal entrypoint)
+├── mac.sh                     # macOS Launcher (Terminal entrypoint)
+├── LICENSE                    # MIT Open Source License
+├── .gitignore                 # Excludes models and output images from version control
+├── README.md                  # Detailed system documentation
 ├── scripts/
-│   ├── setup.ps1              # Automated GPU-detect and environment installer (Windows)
-│   ├── setup.sh               # Automated GPU-detect and environment installer (Linux/macOS)
-│   ├── reset.ps1              # Utility to reset runtime environments (Windows)
-│   ├── reset.sh               # Utility to reset runtime environments (Linux/macOS)
+│   ├── setup.ps1              # Core installation & backend builder (Windows)
+│   ├── setup.sh               # Core installation & backend builder (Linux/macOS)
+│   ├── reset.ps1              # Clean install & environment repair (Windows)
+│   ├── reset.sh               # Clean install & environment repair (Linux/macOS)
 │   └── serve.cjs              # UI web server and backend lifecycle manager
 └── app/
     ├── frontend/              # UI source code (Vite + React)
-    ├── models/                # Folder for weights (.safetensors, .gguf, .ckpt)
-    └── outputs/               # Saved images and parameter metadata
+    ├── models/                # Place weights here (.safetensors, .gguf, .ckpt)
+    └── outputs/               # Saved images and parameters metadata
 ```
 
 ---
 
-## ⚡ Quick Start Guides
+## 🚀 Getting Started
 
-Select your operating system below to get started:
+Ensure you have a modern web browser installed. Follow the quick guide below for your platform:
 
-### 🪟 Windows
-1. **Launch:** Double-click `windows.bat`. On the first run, this automatically downloads a portable Node.js runtime and configures the prebuilt GPU backend binaries.
-2. **Add Models:** Drop your `.safetensors` or `.gguf` weights into the `app/models/` directory, or use the **Model Manager** tab in the UI.
-3. **Generate:** Open `http://localhost:1420` in your web browser, pick your model, and start generating.
+### Windows Setup
 
-### 🐧 Linux
-1. **Check Compatibility:** Prebuilt Linux backends require **glibc 2.38+** (Ubuntu 24.04+, Fedora 40+, etc.). Run `ldd --version` to check.
-2. **Launch:** Open a terminal in the project directory and run:
-   ```bash
-   ./linux.sh
-   ```
-   - **NVIDIA Users:** Follow the prompt to set up **CUDA** (downloads prebuilt binaries, compiles from source as a fallback).
-   - **AMD Users:** Run `./linux.sh --max-perf` to configure high-performance ROCm drivers.
-   - **Intel NPU Users:** Install the Intel Linux NPU driver, then run `./linux.sh --setup-openvino`.
-3. **Generate:** Navigate to `http://localhost:1420` in your web browser.
-
-### 🍎 macOS
-1. **Compatibility:** Optimized for **Apple Silicon (M1, M2, M3, M4 or newer)** via Metal GPU acceleration. Intel Macs are not officially supported.
-2. **Launch:** Run the launcher script from the terminal:
-   ```bash
-   ./mac.sh
-   ```
-3. **Generate:** Navigate to `http://localhost:1420` in your web browser.
+1. **Launch:** Double-click `windows.bat`. 
+   > [!NOTE]
+   > On the first run, the script will automatically download a portable Node.js runtime and configure the pre-compiled GPU backend binaries (CUDA/Vulkan).
+2. **Load Models:** Put your `.safetensors` or `.gguf` weights in `app/models/` or download them via the UI's **Model Manager** tab.
+3. **Generate:** Open `http://localhost:1420` in your browser, pick your model, and generate images.
 
 ---
 
-## 🖥️ GPU Compatibility Matrix
+### Linux Setup
 
-### Windows
-| GPU Vendor | Backend | Acceleration | Notes |
+1. **Check glibc Version:** Prebuilt Linux backends require **glibc 2.38+** (e.g. Ubuntu 24.04+, Fedora 40+). Run `ldd --version` to check.
+2. **Launch:** Run the launcher script:
+   ```bash
+   ./linux.sh
+   ```
+   *   **NVIDIA Users:** Follow the prompt to install **CUDA** (attempts to download prebuilt binaries first, falls back to local compilation if conflicts occur).
+   *   **AMD Users:** Run `./linux.sh --max-perf` to download high-performance ROCm drivers.
+   *   **Intel NPU Users:** Ensure Intel NPU drivers are configured, then run `./linux.sh --setup-openvino`.
+3. **Generate:** Open `http://localhost:1420` in your web browser.
+
+---
+
+### macOS Setup
+
+1. **Compatibility:** Requires **Apple Silicon (M1, M2, M3, M4 or newer)**. Metal GPU acceleration is configured automatically.
+2. **Launch:** Run the script in terminal:
+   ```bash
+   ./mac.sh
+   ```
+3. **Generate:** Open `http://localhost:1420` in your web browser.
+
+---
+
+## 🖥️ Hardware Compatibility & Acceleration
+
+### Windows Compatibility Matrix
+| GPU Vendor | Primary Tech | Status | Notes |
 | :--- | :--- | :--- | :--- |
-| **Nvidia** | CUDA | ✅ Native | Maps `sd-cuda.exe` with Nvidia SDK 12 optimizations. |
-| **AMD Radeon** | Vulkan | ✅ Native | Maps `sd-vulkan.exe` with Vulkan API acceleration. |
-| **Intel Arc** | Vulkan | ✅ Native | Maps `sd-vulkan.exe` for Intel hardware. |
+| **Nvidia** | CUDA | ✅ Native | Runs `sd-cuda.exe` with Nvidia SDK 12 optimizations. |
+| **AMD Radeon** | Vulkan | ✅ Native | Runs `sd-vulkan.exe` with Vulkan API acceleration. |
+| **Intel Arc** | Vulkan | ✅ Native | Runs `sd-vulkan.exe` for Intel hardware. |
 | **Integrated / None** | CPU | ⚠️ Fallback | Runs on logical CPU threads (slow). |
 
-### Linux
-| GPU Vendor | Primary Backend | Fallback | Notes |
+### Linux Compatibility Matrix
+| GPU Vendor | Primary Backend | Fallback Backend | Notes |
 | :--- | :--- | :--- | :--- |
-| **NVIDIA** | CUDA / Vulkan | Vulkan / CPU | Auto-detects NVIDIA. Prompt-driven CUDA setup. |
-| **AMD Radeon** | ROCm | Vulkan | ROCm provides best AMD performance when host ROCm drivers are available. |
+| **NVIDIA** | CUDA | Vulkan / CPU | Auto-detects NVIDIA. Downloads prebuilt or compiles from source. |
+| **AMD Radeon** | ROCm | Vulkan / CPU | Best AMD performance. Requires host ROCm driver setup. |
 | **Intel Arc** | Vulkan | CPU | Cross-vendor Vulkan support. |
-| **Intel Core Ultra NPU** | OpenVINO NPU | CPU | Requires Intel NPU drivers and `./linux.sh --setup-openvino`. |
+| **Intel Core Ultra** | OpenVINO NPU | CPU | Requires Intel NPU drivers and `./linux.sh --setup-openvino`. |
 | **Integrated / None** | CPU | — | Runs on logical CPU threads (slow). |
 
-### macOS
+### macOS Compatibility Matrix
 | Hardware | Primary Backend | Fallback | Notes |
 | :--- | :--- | :--- | :--- |
 | **Apple Silicon (M1+)** | Metal | CPU | Uses Darwin arm64 stable-diffusion.cpp backend. |
 
 ---
 
-## ⏱️ Performance Benchmarks (20 Steps)
+## ⏱️ Performance Benchmarks
 
-Estimated generation times for a single **512x512** image:
+Typical generation times for an image at **512x512** resolution with **20 steps**:
 
-| OS | Hardware / Acceleration | Avg. Generation Time |
-| :--- | :--- | :--- |
-| **Windows** | NVIDIA RTX (CUDA) | **~10 seconds** |
-| **Windows** | NVIDIA GTX (Vulkan) | **~30 seconds** |
-| **Windows** | AMD Radeon / Intel Arc (Vulkan) | **~89 seconds** |
-| **Linux** | NVIDIA RTX (CUDA) | **~10 seconds** |
-| **Linux** | AMD Radeon (ROCm) | **~15 - 30 seconds** |
-| **Linux** | Intel Core Ultra (OpenVINO NPU) | **~15 - 40 seconds** |
-| **macOS** | Apple Silicon M-Series (Metal GPU) | **~12 - 25 seconds** |
-| **macOS** | Apple Silicon ANE (Apple NPU) | **~10 - 18 seconds** |
-| **All OS** | CPU Fallback | **150 - 300+ seconds** |
+| OS | Hardware / Acceleration | Avg. Generation Time | Notes |
+| :--- | :--- | :--- | :--- |
+| **Windows** | NVIDIA RTX (CUDA) | **~10s** | Native CUDA with Tensor Core acceleration. |
+| **Windows** | NVIDIA GTX (Vulkan) | **~30s** | Vulkan is faster than CUDA on legacy GTX cards. |
+| **Windows** | AMD Radeon / Intel Arc (Vulkan) | **~89s** | Cross-vendor Vulkan GPU fallback. |
+| **Linux** | NVIDIA RTX (CUDA) | **~10s** | CUDA prebuilt / compiled from source. |
+| **Linux** | AMD Radeon (ROCm) | **~15 - 30s** | Native AMD performance (requires ROCm drivers). |
+| **Linux** | Intel Core Ultra (OpenVINO NPU) | **~15 - 40s** | Dedicated Intel NPU hardware acceleration. |
+| **macOS** | Apple Silicon M-Series (Metal GPU) | **~12 - 25s** | Native Metal backend on Apple Silicon. |
+| **macOS** | Apple Silicon ANE (Apple NPU) | **~10 - 18s** | CoreML compilation on Apple Neural Engine. |
+| **All OS** | CPU Fallback | **150 - 300s+** | Slow logical thread processing. |
 
 ---
 
-## 🛠️ Troubleshooting & Fixes
+## 🔧 Troubleshooting & FAQ
 
 > [!TIP]
-> **Reset Environment:** If a setup fails or you want to reinstall clean dependencies, run `scripts/reset.ps1` (Windows) or `scripts/reset.sh` (Linux/macOS). This will preserve your models and generated images.
+> **How to reset the environment?**
+> If a setup fails or you want to install clean dependencies, run `scripts/reset.ps1` (Windows) or `scripts/reset.sh` (Linux/macOS). This will preserve your models and generated images.
 
 > [!WARNING]
-> **Port Conflicts:** The web UI runs on port `1420` by default. The backend attempts port `8080` first, then auto-selects a free port if busy.
+> **Port Conflicts:**
+> The web UI runs on port `1420` by default. The backend attempts port `8080` first, then auto-selects a free port if busy.
 
 > [!IMPORTANT]
-> **GLIBC Version Error (Linux):** Prebuilt binaries require glibc 2.38+. If you are on an older system, you will need to compile the backend binaries from source (see compilation guide below).
+> **GLIBC Version Error (Linux):**
+> Prebuilt binaries require glibc 2.38+. If you are on an older system, you will need to compile the backend binaries from source (see compilation guide below).
 
 ---
 
-## 🔨 Building Backends From Source
+## 🔨 Building From Source
 
 If prebuilt binaries are incompatible with your system configuration, you can compile them manually:
 
 ### Requirements
-- `git`, `cmake`, `make` (or `ninja`), and a C++17 compiler (`g++` / `clang++`).
-- For **CUDA**: NVIDIA CUDA Toolkit (`nvcc` in PATH).
-- For **Vulkan**: Vulkan SDK / loader and drivers.
-- For **ROCm**: AMD ROCm development libraries.
-- For **macOS Metal**: Apple Command Line Tools / Xcode.
+*   `git`, `cmake`, `make` (or `ninja`), and a C++17 compiler (`g++` / `clang++`).
+*   **CUDA:** NVIDIA CUDA Toolkit (`nvcc` in PATH).
+*   **Vulkan:** Vulkan SDK / loader and drivers.
+*   **ROCm:** AMD ROCm development libraries.
+*   **macOS Metal:** Apple Command Line Tools / Xcode.
 
 ### Manual Build Instructions
 ```bash
 # 1. Clone the upstream repository
-git clone https://github.com/leejet/stable-diffusion.cpp.git
+git clone https://github.com/leejet/stable-diffusion.git
 cd stable-diffusion.cpp
 mkdir build && cd build
 
@@ -165,5 +195,6 @@ cmake --build . --config Release -j$(getconf _NPROCESSORS_ONLN 2>/dev/null || sy
 
 ---
 
-## 📝 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file. It bundles [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) (MIT License). Model weights are subject to their respective creators' licenses.
+## 📝 Licensing
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file. It bundles [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) (MIT License). Model weights are subject to their respective creators' licenses.
