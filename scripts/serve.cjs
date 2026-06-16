@@ -453,6 +453,77 @@ function getOpenVinoPython() {
 }
 
 let cachedOpenVinoNpuInfo = null;
+let cachedHasNpuHardware = null;
+
+function hasNpuHardware() {
+  if (cachedHasNpuHardware !== null) return cachedHasNpuHardware;
+
+  // Only Windows and Linux can have Intel NPUs (Intel Core Ultra)
+  if (osPlatform !== "win32" && osPlatform !== "linux") {
+    cachedHasNpuHardware = false;
+    return cachedHasNpuHardware;
+  }
+
+  try {
+    if (osPlatform === "win32") {
+      // Check for Intel NPU via WMI - look for NPU device in system
+      const result = spawnSync("wmic", [
+        "path", "win32_pnpentity", "where", "Name like '%NPU%' or Name like '%Intel%AI%' or Name like '%VPU%'", "get", "Name", "/value"
+      ], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] });
+      if (result.status === 0 && result.stdout && (result.stdout.includes("NPU") || result.stdout.includes("AI Boost") || result.stdout.includes("VPU"))) {
+        cachedHasNpuHardware = true;
+        return cachedHasNpuHardware;
+      }
+      // Fallback: check if Intel Core Ultra (Meteor Lake/Arrow Lake/Lunar Lake) via CPU name
+      const cpuResult = spawnSync("wmic", [
+        "cpu", "get", "Name", "/value"
+      ], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] });
+      if (cpuResult.status === 0 && cpuResult.stdout) {
+        const cpuName = cpuResult.stdout.toLowerCase();
+        // Intel Core Ultra series (100, 200) have NPUs
+        if (cpuName.includes("ultra") && (cpuName.match(/ultra\s*\d/) || cpuName.includes("core(tm) ultra"))) {
+          cachedHasNpuHardware = true;
+          return cachedHasNpuHardware;
+        }
+      }
+    } else if (osPlatform === "linux") {
+      // Check for Intel NPU device via lspci or /sys
+      const lspciResult = spawnSync("lspci", [], { encoding: "utf8", timeout: 10000, stdio: ["ignore", "pipe", "pipe"] });
+      if (lspciResult.status === 0 && lspciResult.stdout && lspciResult.stdout.toLowerCase().includes("npu")) {
+        cachedHasNpuHardware = true;
+        return cachedHasNpuHardware;
+      }
+      // Check /sys/bus/pci for Intel NPU (device ID 0x643E, 0x7D1C, etc.)
+      try {
+        const sysPci = fs.readdirSync("/sys/bus/pci/devices");
+        for (const dev of sysPci) {
+          const vendorPath = `/sys/bus/pci/devices/${dev}/vendor`;
+          const devicePath = `/sys/bus/pci/devices/${dev}/class`;
+          if (fs.existsSync(vendorPath) && fs.existsSync(devicePath)) {
+            const vendor = fs.readFileSync(vendorPath, "utf8").trim();
+            const devClass = fs.readFileSync(devicePath, "utf8").trim();
+            // Intel vendor (0x8086) and NPU class (0x1180000 or similar AI accelerator)
+            if (vendor === "0x8086" && (devClass.includes("1180") || devClass.includes("acce"))) {
+              cachedHasNpuHardware = true;
+              return cachedHasNpuHardware;
+            }
+          }
+        }
+      } catch (_) {}
+      // Fallback: check CPU info for Intel Core Ultra
+      try {
+        const cpuInfo = fs.readFileSync("/proc/cpuinfo", "utf8").toLowerCase();
+        if (cpuInfo.includes("ultra") && cpuInfo.includes("intel")) {
+          cachedHasNpuHardware = true;
+          return cachedHasNpuHardware;
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+
+  cachedHasNpuHardware = false;
+  return cachedHasNpuHardware;
+}
 
 function getOpenVinoNpuInfo() {
   if (cachedOpenVinoNpuInfo) return cachedOpenVinoNpuInfo;
@@ -461,6 +532,13 @@ function getOpenVinoNpuInfo() {
     cachedOpenVinoNpuInfo = { supported: false, reason: "OpenVINO NPU backend is supported on Windows and Linux Intel Core Ultra systems." };
     return cachedOpenVinoNpuInfo;
   }
+
+  // Only check OpenVINO if we have NPU hardware
+  if (!hasNpuHardware()) {
+    cachedOpenVinoNpuInfo = { supported: false, reason: "No Intel NPU hardware detected on this system." };
+    return cachedOpenVinoNpuInfo;
+  }
+
   const python = getOpenVinoPython();
   if (!python) {
     const setupScript = osPlatform === "win32"
@@ -926,7 +1004,7 @@ function getBackendOptions() {
   }
   if (openvinoNpu.supported && !openvinoNpuAvailable) {
     unavailable.push({ id: "openvino-npu", label: "NPU (OpenVINO)", reason: "Runtime is ready, but no OpenVINO NPU model is downloaded." });
-  } else if (!openvinoNpu.supported && (osPlatform === "win32" || osPlatform === "linux")) {
+  } else if (!openvinoNpu.supported && hasNpuHardware() && (osPlatform === "win32" || osPlatform === "linux")) {
     unavailable.push({ id: "openvino-npu", label: "NPU (OpenVINO)", reason: openvinoNpu.reason });
   }
 

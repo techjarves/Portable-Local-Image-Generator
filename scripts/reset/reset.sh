@@ -4,10 +4,11 @@
 # Resets portable app dependencies/builds while preserving user models and outputs.
 #
 
-set -euo pipefail
+set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+SCRIPTS_DIR="$(dirname "$SCRIPT_DIR")"
+ROOT_DIR="$(dirname "$SCRIPTS_DIR")"
 APP_DIR="$ROOT_DIR/app"
 
 echo ""
