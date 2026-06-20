@@ -17,8 +17,11 @@ app/tools/
 node_modules/
 **/.active_modules_os
 
-# Ignore backend folder completely (contains massive DLLs, EXEs, and ZIPs >1GB)
-app/backend/
+# Ignore backend binaries/environments, but keep small checked-in bridge scripts.
+app/backend/*
+!app/backend/mac/
+app/backend/mac/*
+!app/backend/mac/coreml_server.py
 
 # Ignore local IDE and OS temp files
 .vscode/

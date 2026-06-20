@@ -1483,6 +1483,12 @@ async function startBackend(settings = {}) {
   currentSettings.backendType = resolvedBackendType;
   currentSettings.useGpu = resolvedBackendType !== "cpu";
   const backendPath = selectBackendPath(currentSettings.useGpu, currentSettings.backendType, currentSettings.model);
+  if (!backendPath) {
+    const setupHint = resolvedBackendType === "apple-npu"
+      ? "CoreML Python environment is not set up. Run scripts/setup-coreml-npu.sh first."
+      : "No compatible backend executable was found.";
+    throw new Error(setupHint);
+  }
   const backendMode = getBackendMode(backendPath, currentSettings.useGpu, currentSettings.backendType);
   currentSettings.backendMode = backendMode;
   currentSettings.backendBinary = path.basename(backendPath);
