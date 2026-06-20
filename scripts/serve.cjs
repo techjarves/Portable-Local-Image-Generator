@@ -1753,6 +1753,83 @@ let downloadState = {
 };
 let activeDownload = null;
 
+function stripAnsi(str) {
+  return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
+}
+
+class LineBufferParser {
+  constructor(callback) {
+    this.buffer = "";
+    this.callback = callback;
+  }
+  
+  append(data) {
+    this.buffer += data;
+    const lines = this.buffer.split(/[\r\n]+/);
+    
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i].trim();
+      if (!line) continue;
+      
+      const parsed = parseTqdmProgress(line);
+      if (parsed) {
+        this.callback(line);
+        break;
+      }
+    }
+    
+    const lastR = this.buffer.lastIndexOf("\r");
+    const lastN = this.buffer.lastIndexOf("\n");
+    const lastSeparator = Math.max(lastR, lastN);
+    if (lastSeparator !== -1) {
+      this.buffer = this.buffer.slice(lastSeparator + 1);
+    }
+  }
+}
+
+function parseTqdmProgress(line) {
+  const cleanLine = stripAnsi(line);
+  const progressMatch = cleanLine.match(/(\d+)%\s*\|/);
+  if (!progressMatch) return null;
+
+  const progress = parseInt(progressMatch[1], 10);
+  
+  const bracketMatch = cleanLine.match(/\[([^\]]+)\]/);
+  let eta = 0;
+  let speed = "";
+  
+  if (bracketMatch) {
+    const parts = bracketMatch[1].split(",");
+    if (parts[0] && parts[0].includes("<")) {
+      const timeParts = parts[0].split("<");
+      const remainingStr = timeParts[1].trim();
+      eta = parseTqdmTime(remainingStr);
+    }
+    if (parts[1]) {
+      speed = parts[1].trim();
+    }
+  }
+  
+  let label = "";
+  const labelMatch = cleanLine.match(/^([^:|]+):/);
+  if (labelMatch) {
+    label = labelMatch[1].trim();
+  }
+
+  return { progress, eta, speed, label };
+}
+
+function parseTqdmTime(timeStr) {
+  const parts = timeStr.split(":").map(Number);
+  if (parts.some(isNaN)) return 0;
+  if (parts.length === 2) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
 function startOpenVinoModelDownload(modelId) {
   if (downloadState.active) return;
   const npuInfo = getOpenVinoNpuInfo();
@@ -1775,14 +1852,46 @@ function startOpenVinoModelDownload(modelId) {
 
   const script = [
     "from huggingface_hub import snapshot_download",
-    `snapshot_download(repo_id=${JSON.stringify(model.repo)}, local_dir=${JSON.stringify(destDir)}, ignore_patterns=['safety_checker/*','feature_extractor/*','*.safetensors'])`,
+    `snapshot_download(repo_id=${JSON.stringify(model.repo)}, local_dir=${JSON.stringify(destDir)}, ignore_patterns=['safety_checker/*','feature_extractor/*','*.safetensors'], max_workers=1)`,
     "print('DONE')",
   ].join("\n");
+
+  const stdoutParser = new LineBufferParser((line) => {
+    const parsed = parseTqdmProgress(line);
+    if (parsed) {
+      downloadState.progress = parsed.progress;
+      downloadState.eta = parsed.eta;
+      if (parsed.speed) {
+        downloadState.speed = parsed.label ? `${parsed.speed} (${parsed.label})` : parsed.speed;
+      }
+    }
+  });
+
+  const stderrParser = new LineBufferParser((line) => {
+    const parsed = parseTqdmProgress(line);
+    if (parsed) {
+      downloadState.progress = parsed.progress;
+      downloadState.eta = parsed.eta;
+      if (parsed.speed) {
+        downloadState.speed = parsed.label ? `${parsed.speed} (${parsed.label})` : parsed.speed;
+      }
+    }
+  });
+
   console.log(`  [openvino-download] Downloading ${model.repo} -> ${destDir}`);
-  const proc = spawn(npuInfo.python, ["-c", script], { stdio: "pipe" });
+  const proc = spawn(npuInfo.python, ["-u", "-c", script], { stdio: "pipe" });
   activeDownload = { process: proc, destPath: destDir, openvino: true };
-  proc.stdout.on("data", (data) => process.stdout.write("  [openvino-download] " + data.toString()));
-  proc.stderr.on("data", (data) => process.stderr.write("  [openvino-download] " + data.toString()));
+
+  proc.stdout.on("data", (data) => {
+    const str = data.toString();
+    process.stdout.write("  [openvino-download] " + str);
+    stdoutParser.append(str);
+  });
+  proc.stderr.on("data", (data) => {
+    const str = data.toString();
+    process.stderr.write("  [openvino-download] " + str);
+    stderrParser.append(str);
+  });
   proc.on("exit", (code) => {
     activeDownload = null;
     if (String(downloadState.error || "").toLowerCase().includes("cancelled")) {

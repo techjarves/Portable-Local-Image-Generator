@@ -26,9 +26,36 @@ if [[ "$(uname -m)" != "x86_64" ]]; then
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "  [ERROR] python3 is required. Install Python 3 and the venv module." >&2
-  exit 1
+TOOLS_DIR="$ROOT_DIR/app/tools"
+PORTABLE_PYTHON_DIR="$TOOLS_DIR/python"
+PORTABLE_PYTHON_BIN="$PORTABLE_PYTHON_DIR/bin/python"
+
+if [[ ! -x "$PORTABLE_PYTHON_BIN" ]]; then
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "  Python was not detected. Downloading portable Python 3.10..."
+    TEMP_ZIP="$TOOLS_DIR/python-standalone.tar.gz"
+    URL="https://github.com/astral-sh/python-build-standalone/releases/download/20240224/cpython-3.10.13+20240224-x86_64-unknown-linux-gnu-install_only.tar.gz"
+    mkdir -p "$TOOLS_DIR"
+    if command -v curl >/dev/null 2>&1; then
+      curl -L -o "$TEMP_ZIP" "$URL"
+    elif command -v wget >/dev/null 2>&1; then
+      wget -O "$TEMP_ZIP" "$URL"
+    else
+      echo "  [ERROR] Neither curl nor wget is installed. Cannot download portable Python." >&2
+      exit 1
+    fi
+    echo "  Extracting portable Python..."
+    tar -xf "$TEMP_ZIP" -C "$TOOLS_DIR"
+    rm -f "$TEMP_ZIP"
+  fi
+fi
+
+PYTHON_CMD="python3"
+if [[ -x "$PORTABLE_PYTHON_BIN" ]]; then
+  PYTHON_CMD="$PORTABLE_PYTHON_BIN"
+  echo "  Using portable Python: $PORTABLE_PYTHON_BIN"
+else
+  echo "  Using system Python..."
 fi
 
 KERNEL_VERSION="$(uname -r)"
@@ -50,9 +77,9 @@ fi
 
 if [[ ! -x "$PYTHON_BIN" ]]; then
   echo "  Creating Python environment: $VENV_DIR"
-  if ! python3 -m venv "$VENV_DIR"; then
+  if ! "$PYTHON_CMD" -m venv "$VENV_DIR"; then
     echo "  [ERROR] Could not create the virtual environment."
-    echo "          On Ubuntu, install python3-venv and retry."
+    echo "          If using system Python on Ubuntu/Debian, install python3-venv."
     exit 1
   fi
 fi

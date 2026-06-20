@@ -81,7 +81,7 @@ const OPENVINO_MODEL_LIBRARY = [
 
 const COREML_MODEL_LIBRARY = [
   {
-    group: "Apple Silicon NPU - CoreML Test",
+    group: "Apple Silicon NPU - CoreML Models",
     items: [
       {
         name: "Stable Diffusion v1.5 CoreML (split_einsum, palettized 6-bit)",
@@ -91,6 +91,24 @@ const COREML_MODEL_LIBRARY = [
         resolution: "512x512",
         notes: "Apple Silicon ANE (Neural Engine) optimized 6-bit palettized Stable Diffusion 1.5 model. Unzips automatically on download completion and runs extremely fast on Mac NPUs.",
         url: "https://huggingface.co/apple/coreml-stable-diffusion-v1-5-palettized/resolve/main/coreml-stable-diffusion-v1-5-palettized_split_einsum_v2_compiled.zip",
+      },
+      {
+        name: "CyberRealistic v8 CoreML (split_einsum)",
+        filename: "cyberrealistic.coreml",
+        format: "CoreML",
+        approxSize: "1.8 GB",
+        resolution: "512x512",
+        notes: "High-fidelity realism SD 1.5 model compiled for Apple Silicon ANE (Neural Engine). Unzips automatically on download completion.",
+        url: "https://huggingface.co/orailnooor/cyberrealistic-coreml/resolve/main/cyberrealistic.coreml.zip",
+      },
+      {
+        name: "CyberRealistic v8 CoreML (split_einsum, palettized 6-bit)",
+        filename: "cyberrealistic-6bit.coreml",
+        format: "CoreML",
+        approxSize: "800 MB",
+        resolution: "512x512",
+        notes: "6-bit palettized CyberRealistic v8 model optimized for fast generation on Apple Silicon NPUs with a smaller memory footprint. Unzips automatically on download completion.",
+        url: "https://huggingface.co/orailnooor/cyberrealistic-coreml/resolve/main/cyberrealistic-6bit.coreml.zip",
       },
     ],
   },

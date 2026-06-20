@@ -25,9 +25,38 @@ if (-not $npu) {
 
 Write-Host "  Detected: $($npu.Name)"
 
+$toolsDir = Join-Path $rootDir "app\tools"
+$portablePythonDir = Join-Path $toolsDir "python"
+$portablePythonExe = Join-Path $portablePythonDir "python.exe"
+
+if (-not (Test-Path $portablePythonExe)) {
+  $systemPython = Get-Command python -ErrorAction SilentlyContinue
+  if (-not $systemPython) {
+    Write-Host "  Python was not detected. Downloading portable Python 3.10..." -ForegroundColor Cyan
+    $tempZip = Join-Path $toolsDir "python-standalone.tar.gz"
+    $url = "https://github.com/astral-sh/python-build-standalone/releases/download/20240224/cpython-3.10.13+20240224-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+    New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+    $ProgressPreference = 'SilentlyContinue'
+    Invoke-WebRequest -Uri $url -OutFile $tempZip
+    Write-Host "  Extracting portable Python..." -ForegroundColor Cyan
+    tar.exe -xf $tempZip -C $toolsDir
+    if (Test-Path $tempZip) {
+      Remove-Item -Force $tempZip
+    }
+  }
+}
+
+$pythonCmd = "python"
+if (Test-Path $portablePythonExe) {
+  $pythonCmd = $portablePythonExe
+  Write-Host "  Using portable Python: $portablePythonExe"
+} else {
+  Write-Host "  Using system Python..."
+}
+
 if (-not (Test-Path $pythonExe)) {
   Write-Host "  Creating Python environment: $venvDir"
-  python -m venv $venvDir
+  & $pythonCmd -m venv $venvDir
 }
 
 Write-Host "  Installing OpenVINO GenAI runtime..."

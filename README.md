@@ -10,6 +10,16 @@
   <img src="https://img.shields.io/badge/License-MIT-orange?style=for-the-badge" alt="License" />
 </p>
 
+<p align="center">
+  🎥 <strong>Watch the Setup & Demo Video:</strong> <a href="https://youtu.be/Be8hKvZR4XE">https://youtu.be/Be8hKvZR4XE</a>
+</p>
+
+<p align="center">
+  <a href="https://youtu.be/Be8hKvZR4XE">
+    <img src="https://img.youtube.com/vi/Be8hKvZR4XE/maxresdefault.jpg" alt="Watch the Setup & Demo Video" width="800" />
+  </a>
+</p>
+
 ---
 
 ## 📖 Table of Contents
