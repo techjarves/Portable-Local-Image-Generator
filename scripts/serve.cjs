@@ -27,6 +27,7 @@ const osPlatform = process.platform;
 const BACKEND_PATHS = {
   cuda: path.join(ROOT, "app", "backend", "win", "cuda", "sd-cuda.exe"),
   vulkan: path.join(ROOT, "app", "backend", "win", "vulkan", "sd-vulkan.exe"),
+  cpu: path.join(ROOT, "app", "backend", "win", "cpu", "sd-cpu.exe"),
   mac: path.join(ROOT, "app", "backend", "mac", "sd"),
   linuxCpu: path.join(ROOT, "app", "backend", "linux", "cpu", "sd-server-cpu"),
   linuxVulkan: path.join(ROOT, "app", "backend", "linux", "vulkan", "sd-server-vulkan"),
@@ -49,6 +50,8 @@ if (osPlatform === "win32") {
 
   if (hasNvidia && fs.existsSync(BACKEND_PATHS.cuda)) {
     BACKEND_PATH = BACKEND_PATHS.cuda;
+  } else if (fs.existsSync(BACKEND_PATHS.cpu)) {
+    BACKEND_PATH = BACKEND_PATHS.cpu;
   } else {
     BACKEND_PATH = BACKEND_PATHS.vulkan;
   }
@@ -163,6 +166,28 @@ function getCpuUsagePercent() {
 
   if (totalDelta <= 0) return 0;
   return Math.max(0, Math.min(100, Math.round((1 - idleDelta / totalDelta) * 1000) / 10));
+}
+
+function hasVulkanRuntime() {
+  if (osPlatform !== "win32") return true;
+  try {
+    // Check for vulkan-1.dll in System32 and SysWOW64
+    const sysPaths = [
+      path.join(process.env.SystemRoot || "C:\\Windows", "System32", "vulkan-1.dll"),
+      path.join(process.env.SystemRoot || "C:\\Windows", "SysWOW64", "vulkan-1.dll"),
+    ];
+    for (const dllPath of sysPaths) {
+      if (fs.existsSync(dllPath)) return true;
+    }
+    // Also check if the Vulkan loader is in PATH
+    try {
+      execSync("where vulkan-1.dll", { stdio: "ignore" });
+      return true;
+    } catch (_) {}
+    return false;
+  } catch (_) {
+    return false;
+  }
 }
 
 function detectLinuxGpuFromSysfs() {
@@ -644,6 +669,7 @@ function getSetupPaths() {
       distIndex: path.join(DIST, "index.html"),
       cudaBackend: BACKEND_PATHS.cuda,
       vulkanBackend: BACKEND_PATHS.vulkan,
+      cpuBackend: BACKEND_PATHS.cpu,
       models: MODELS,
       outputs: OUTPUTS,
     };
@@ -684,6 +710,7 @@ async function getHealth() {
   if (osPlatform === "win32") {
     checks.push(getPathInfo("CUDA backend", paths.cudaBackend));
     checks.push(getPathInfo("Vulkan backend", paths.vulkanBackend));
+    checks.push(getPathInfo("CPU backend", paths.cpuBackend));
   } else if (osPlatform === "darwin") {
     checks.push(getPathInfo("Mac backend", paths.macBackend));
   } else {
@@ -695,7 +722,8 @@ async function getHealth() {
   let backendInstalled = false;
   if (osPlatform === "win32") {
     backendInstalled = checks.find((check) => check.label === "CUDA backend")?.exists ||
-      checks.find((check) => check.label === "Vulkan backend")?.exists;
+      checks.find((check) => check.label === "Vulkan backend")?.exists ||
+      checks.find((check) => check.label === "CPU backend")?.exists;
   } else if (osPlatform === "darwin") {
     backendInstalled = checks.find((check) => check.label === "Mac backend")?.exists;
   } else {
@@ -707,7 +735,7 @@ async function getHealth() {
   }
 
   const criticalOk = checks
-    .filter((check) => !["CUDA backend", "Vulkan backend", "Linux CPU backend", "Linux Vulkan backend", "Linux ROCm backend", "Mac backend"].includes(check.label))
+    .filter((check) => !["CUDA backend", "Vulkan backend", "CPU backend", "Linux CPU backend", "Linux Vulkan backend", "Linux ROCm backend", "Mac backend"].includes(check.label))
     .every((check) => check.ok) && backendInstalled;
 
   const ports = {
@@ -720,7 +748,7 @@ async function getHealth() {
   ports.backend.ok = true;
 
   const issues = checks
-    .filter((check) => !check.ok && !["CUDA backend", "Vulkan backend", "Linux CPU backend", "Linux Vulkan backend", "Linux ROCm backend", "Mac backend"].includes(check.label))
+    .filter((check) => !check.ok && !["CUDA backend", "Vulkan backend", "CPU backend", "Linux CPU backend", "Linux Vulkan backend", "Linux ROCm backend", "Mac backend"].includes(check.label))
     .map((check) => `${check.label} is missing or not writable.`);
   if (!backendInstalled) {
     issues.push(`No ${osPlatform === "win32" ? "Windows" : osPlatform === "darwin" ? "macOS" : "Linux"} backend binary is installed.`);
@@ -845,6 +873,9 @@ function isRunningInWSL() {
 }
 
 function getVulkanUnavailableReason() {
+  if (osPlatform === "win32" && !hasVulkanRuntime()) {
+    return "The Vulkan runtime (vulkan-1.dll) is missing. Install or update your GPU vendor driver with Vulkan support, then run setup again so the Vulkan backend folder is repaired.";
+  }
   if (osPlatform === "linux" && isRunningInWSL()) {
     const gpuName = getGpuInfo().name;
     const lowerGpu = gpuName.toLowerCase();
@@ -859,6 +890,16 @@ function getVulkanUnavailableReason() {
 let cachedCoreMLPythonPath = null;
 let cachedCoreMLAvailable = null;
 
+function coreMLPythonReady(pythonPath) {
+  if (!pythonPath || !fs.existsSync(pythonPath)) return false;
+  const result = spawnSync(pythonPath, [
+    "-c",
+    "import sys; assert sys.version_info < (3, 12); import python_coreml_stable_diffusion, diffusers, transformers"
+  ], { timeout: 5000, stdio: ["ignore", "pipe", "pipe"] });
+  if (result.status !== 0) return false;
+  return true;
+}
+
 function getCoreMLPythonPath() {
   if (cachedCoreMLAvailable !== null) {
     return cachedCoreMLPythonPath;
@@ -871,7 +912,7 @@ function getCoreMLPythonPath() {
   }
 
   // 1. Check environment variable COREML_PYTHON
-  if (process.env.COREML_PYTHON && fs.existsSync(process.env.COREML_PYTHON)) {
+  if (process.env.COREML_PYTHON && coreMLPythonReady(process.env.COREML_PYTHON)) {
     cachedCoreMLPythonPath = process.env.COREML_PYTHON;
     cachedCoreMLAvailable = true;
     return cachedCoreMLPythonPath;
@@ -885,7 +926,7 @@ function getCoreMLPythonPath() {
   ];
 
   for (const p of localPaths) {
-    if (fs.existsSync(p)) {
+    if (coreMLPythonReady(p)) {
       cachedCoreMLPythonPath = p;
       cachedCoreMLAvailable = true;
       return p;
@@ -900,7 +941,7 @@ function getCoreMLPythonPath() {
   ];
 
   for (const p of homePaths) {
-    if (fs.existsSync(p)) {
+    if (coreMLPythonReady(p)) {
       cachedCoreMLPythonPath = p;
       cachedCoreMLAvailable = true;
       return p;
@@ -911,7 +952,7 @@ function getCoreMLPythonPath() {
   try {
     const probeResult = spawnSync("python3", [
       "-c",
-      "import python_coreml_stable_diffusion, diffusers, transformers"
+      "import sys; assert sys.version_info < (3, 12); import python_coreml_stable_diffusion, diffusers, transformers"
     ], { timeout: 2000 });
     
     if (probeResult.status === 0) {
@@ -942,7 +983,7 @@ function getCoreMLNpuInfo() {
     return {
       supported: true,
       ready: false,
-      reason: "CoreML Python environment is not set up. Run scripts/setup-coreml-npu.sh first.",
+      reason: "CoreML Python environment is not set up or was created with Python 3.12+. Run scripts/setup-coreml-npu.sh with Python 3.9-3.11.",
     };
   }
 
@@ -964,13 +1005,15 @@ function getBackendOptions() {
   );
   const vulkanInstalled = (osPlatform === "win32" && fs.existsSync(BACKEND_PATHS.vulkan)) ||
                           (osPlatform === "linux" && fs.existsSync(BACKEND_PATHS.linuxVulkan));
-  const vulkanAvailable = vulkanInstalled && backendAccepts(
+  const vulkanRuntimeAvailable = osPlatform !== "win32" || hasVulkanRuntime();
+  const vulkanAvailable = vulkanInstalled && vulkanRuntimeAvailable && backendAccepts(
     osPlatform === "win32" ? BACKEND_PATHS.vulkan : BACKEND_PATHS.linuxVulkan,
     "vulkan"
   );
   const rocmInstalled = osPlatform === "linux" && fs.existsSync(BACKEND_PATHS.linuxRocm);
   const rocmAvailable = rocmInstalled && hasAmdGpu() && backendAccepts(BACKEND_PATHS.linuxRocm, "rocm");
-  const cpuInstalled = osPlatform === "linux" && fs.existsSync(BACKEND_PATHS.linuxCpu);
+  const cpuInstalled = (osPlatform === "linux" && fs.existsSync(BACKEND_PATHS.linuxCpu)) ||
+                        (osPlatform === "win32" && fs.existsSync(BACKEND_PATHS.cpu));
   const metalInstalled = osPlatform === "darwin" && fs.existsSync(BACKEND_PATHS.mac);
   const metalAvailable = metalInstalled;
   const coremlNpu = getCoreMLNpuInfo();
@@ -1108,6 +1151,11 @@ function selectBackendPath(useGpu, backendType = "auto", modelPath = "") {
   const resolvedType = resolveBackendType(useGpu, backendType, modelPath);
   if (osPlatform === "win32") {
     if (resolvedType === "cuda" && fs.existsSync(BACKEND_PATHS.cuda)) return BACKEND_PATHS.cuda;
+    if (resolvedType === "cpu") return fs.existsSync(BACKEND_PATHS.cpu) ? BACKEND_PATHS.cpu : null;
+    if (resolvedType === "vulkan" && fs.existsSync(BACKEND_PATHS.vulkan)) return BACKEND_PATHS.vulkan;
+    // Fallback: try cuda → cpu → vulkan
+    if (fs.existsSync(BACKEND_PATHS.cuda)) return BACKEND_PATHS.cuda;
+    if (fs.existsSync(BACKEND_PATHS.cpu)) return BACKEND_PATHS.cpu;
     if (fs.existsSync(BACKEND_PATHS.vulkan)) return BACKEND_PATHS.vulkan;
     return BACKEND_PATH;
   }
@@ -1486,6 +1534,8 @@ async function startBackend(settings = {}) {
   if (!backendPath) {
     const setupHint = resolvedBackendType === "apple-npu"
       ? "CoreML Python environment is not set up. Run scripts/setup-coreml-npu.sh first."
+      : resolvedBackendType === "cpu" && osPlatform === "win32"
+        ? "Windows CPU backend is not installed. Run scripts/setup.ps1 again so app/backend/win/cpu is created."
       : "No compatible backend executable was found.";
     throw new Error(setupHint);
   }
