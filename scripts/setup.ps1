@@ -242,6 +242,56 @@ if (-not $hasNvidia) {
     } catch {}
 }
 
+Print-Step 2 $steps "Setting up stable-diffusion.cpp CPU backend (app/backend/win/cpu/)"
+$cpuBackendDest = Join-Path $appDir "backend\win\cpu"
+$cpuBackendExe  = Join-Path $cpuBackendDest "sd-cpu.exe"
+$cpuBackendDll  = Join-Path $cpuBackendDest "stable-diffusion.dll"
+
+if ((Test-Path $cpuBackendExe) -and (Test-Path $cpuBackendDll)) {
+    Print-OK "CPU backend binaries already ready."
+} else {
+    $cpuBackendZip = Join-Path $toolsDir "sd-cpu.zip"
+    New-Item -ItemType Directory -Force -Path $toolsDir | Out-Null
+    New-Item -ItemType Directory -Force -Path $cpuBackendDest | Out-Null
+
+    $ok = Invoke-RichDownload `
+        -Url  "https://github.com/leejet/stable-diffusion.cpp/releases/download/master-669-2d40a8b/sd-master-2d40a8b-bin-win-avx2-x64.zip" `
+        -Dest $cpuBackendZip `
+        -Label "stable-diffusion.cpp CPU Backend (Windows x64 AVX2)"
+
+    if (-not $ok) { Print-Fail "Cannot download CPU backend binaries."; Read-Host; exit 1 }
+
+    $tempExt = Join-Path $toolsDir "sd-cpu-temp"
+    Expand-WithProgress -ZipPath $cpuBackendZip -Destination $tempExt -Label "CPU Backend"
+    Remove-Item $cpuBackendZip -Force
+
+    if (Test-Path $tempExt) {
+        $extractedExe = Join-Path $tempExt "bin\sd-server.exe"
+        if (-not (Test-Path $extractedExe)) { $extractedExe = Join-Path $tempExt "sd-server.exe" }
+        if (-not (Test-Path $extractedExe)) { $extractedExe = Join-Path $tempExt "bin\sd.exe" }
+        if (-not (Test-Path $extractedExe)) { $extractedExe = Join-Path $tempExt "sd.exe" }
+
+        $extractedDll = Join-Path $tempExt "bin\stable-diffusion.dll"
+        if (-not (Test-Path $extractedDll)) { $extractedDll = Join-Path $tempExt "stable-diffusion.dll" }
+
+        if (Test-Path $extractedExe) { Copy-Item $extractedExe $cpuBackendExe -Force }
+        if (Test-Path $extractedDll) { Copy-Item $extractedDll $cpuBackendDll -Force }
+
+        Get-ChildItem $tempExt -Filter "*.dll" -Recurse | ForEach-Object { Copy-Item $_.FullName $cpuBackendDest -Force }
+        Get-ChildItem $tempExt -Filter "*.exe" -Recurse | ForEach-Object {
+            if ($_.FullName -ne $extractedExe) { Copy-Item $_.FullName $cpuBackendDest -Force }
+        }
+        Remove-Item $tempExt -Recurse -Force
+    }
+
+    if ((Test-Path $cpuBackendExe) -and (Test-Path $cpuBackendDll)) {
+        Print-OK "CPU backend binaries installed successfully!"
+    } else {
+        Print-Fail "Failed to copy backend binaries to app/backend/win/cpu/."
+        Read-Host; exit 1
+    }
+}
+
 if ($hasNvidia) {
     Print-Step 2 $steps "Setting up stable-diffusion.cpp CUDA GPU backend (app/backend/win/cuda/)"
     $backendDest = Join-Path $appDir "backend\win\cuda"

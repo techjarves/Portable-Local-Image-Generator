@@ -345,10 +345,41 @@ if [[ "$PLATFORM" == "Darwin" ]]; then
   print_info "Setting up CoreML Python virtual environment for Apple Silicon ANE (NPU)..."
   VENV_DIR="$BACKEND_DIR/coreml_venv"
   PYTHON_BIN="$VENV_DIR/bin/python"
+  is_coreml_python_supported() {
+    "$1" - <<'PY' >/dev/null 2>&1
+import sys
+raise SystemExit(0 if (3, 9) <= sys.version_info[:2] < (3, 12) else 1)
+PY
+  }
+  find_coreml_python() {
+    if [[ -n "${COREML_SETUP_PYTHON:-}" ]] && command -v "$COREML_SETUP_PYTHON" >/dev/null 2>&1 && is_coreml_python_supported "$COREML_SETUP_PYTHON"; then
+      command -v "$COREML_SETUP_PYTHON"
+      return 0
+    fi
+    for candidate in python3.11 python3.10 python3.9 python3; do
+      if command -v "$candidate" >/dev/null 2>&1 && is_coreml_python_supported "$candidate"; then
+        command -v "$candidate"
+        return 0
+      fi
+    done
+    return 1
+  }
+  coreml_venv_ready() {
+    [[ -x "$PYTHON_BIN" ]] && "$PYTHON_BIN" -c "import sys; assert sys.version_info < (3, 12); import python_coreml_stable_diffusion, diffusers, transformers" >/dev/null 2>&1
+  }
+  SETUP_PYTHON="$(find_coreml_python || true)"
   
-  if [[ ! -x "$PYTHON_BIN" ]]; then
+  if [[ -z "$SETUP_PYTHON" ]]; then
+    print_warn "CoreML NPU setup requires Python 3.9, 3.10, or 3.11. Python 3.12+ is not compatible with Apple's ml-stable-diffusion dependency stack."
+    print_warn "Install python@3.11 with Homebrew, or set COREML_SETUP_PYTHON to a supported Python. CoreML NPU mode will be unavailable."
+  elif [[ -x "$PYTHON_BIN" ]] && ! coreml_venv_ready; then
+    print_warn "Existing CoreML environment is incomplete or uses Python 3.12+. Recreating it..."
+    rm -rf "$VENV_DIR"
+  fi
+
+  if [[ -n "$SETUP_PYTHON" && ! -x "$PYTHON_BIN" ]]; then
     print_info "Creating Python virtual environment at $VENV_DIR..."
-    if ! python3 -m venv "$VENV_DIR"; then
+    if ! "$SETUP_PYTHON" -m venv "$VENV_DIR"; then
       print_warn "Could not create the virtual environment for CoreML. CoreML NPU mode will be unavailable."
     fi
   fi
@@ -356,7 +387,7 @@ if [[ "$PLATFORM" == "Darwin" ]]; then
   if [[ -x "$PYTHON_BIN" ]]; then
     print_info "Installing CoreML dependencies (this may take a couple of minutes)..."
     if "$PYTHON_BIN" -m pip install --upgrade pip >/dev/null 2>&1 && \
-       "$PYTHON_BIN" -m pip install numpy coremltools diffusers transformers huggingface-hub pillow >/dev/null 2>&1 && \
+       "$PYTHON_BIN" -m pip install "numpy<1.24" coremltools diffusers transformers huggingface-hub pillow >/dev/null 2>&1 && \
        "$PYTHON_BIN" -m pip install "git+https://github.com/apple/ml-stable-diffusion.git" >/dev/null 2>&1; then
       print_ok "CoreML ANE (NPU) environment ready."
     else
