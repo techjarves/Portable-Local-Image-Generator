@@ -1,8 +1,12 @@
 # ⚡ Portable-Diffusion
 
+
+
 <p align="center">
   <strong>A premium, zero-configuration local AI image generator and offline Stable Diffusion GUI. Powered by hardware-accelerated GPU and NPU execution on Windows, Linux, and macOS.</strong>
 </p>
+
+
 
 <p align="center">
   <img src="https://img.shields.io/badge/Offline-100%25-green?style=for-the-badge&logo=offline" alt="100% Offline" />
@@ -20,6 +24,16 @@
   </a>
 </p>
 
+
+---
+
+> [!IMPORTANT]
+> **This repository (`Portable-Diffusion`) is deprecated and is no longer actively maintained.**
+> 
+> All active development, features, and bug fixes (including the Windows crash/access violation fixes) have moved to:
+> ### 👉 **[Uncensored-Local-Studio](https://github.com/techjarves/Uncensored-Local-Studio)**
+> 
+> Please visit the new repository to download the latest version, report issues, and follow the project's development.
 ---
 
 ## 📖 Table of Contents
